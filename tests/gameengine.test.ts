@@ -73,7 +73,7 @@ describe("Deck", () => {
 });
 
 describe("Deal", () => {
-  it("deals exactly 52 cards across all players", () => {
+  it("deals exactly 49 cards across all players (non-spade queens removed)", () => {
     const engine = new GameEngine();
     const events: { total: number; unique: number }[] = [];
     engine.on("CARDS_DEALT", (e) => {
@@ -87,11 +87,29 @@ describe("Deal", () => {
       ],
       7,
     );
-    expect(events[0].total).toBe(52);
-    expect(events[0].unique).toBe(52);
+    expect(events[0].total).toBe(49);
+    expect(events[0].unique).toBe(49);
     // Total cards (hands + discard) is conserved.
     const total = engine.state.players.reduce((s, p) => s + p.hand.length, 0);
-    expect(total + engine.state.discardPile.length).toBe(52);
+    expect(total + engine.state.discardPile.length).toBe(49);
+  });
+
+  it("never deals a Queen other than the Queen of Spades", () => {
+    const engine = new GameEngine();
+    let dealt: string[] = [];
+    engine.on("CARDS_DEALT", (e) => {
+      dealt = e.players.flatMap((p) => p.hand.map((c) => c.id));
+    });
+    engine.startGame(
+      [
+        { id: "human", type: "human", name: "You" },
+        { id: "ai", type: "ai", name: "AI" },
+      ],
+      7,
+    );
+    expect(dealt.filter((id) => id.startsWith("Q-") || id.endsWith("-Q"))).toEqual([
+      "spades-Q",
+    ]);
   });
 
   it("dealt hands differ by at most one card", () => {
@@ -110,7 +128,7 @@ describe("Deal", () => {
     );
     expect(dealt).toHaveLength(3);
     expect(Math.max(...dealt) - Math.min(...dealt)).toBeLessThanOrEqual(1);
-    expect(dealt.reduce((a, b) => a + b, 0)).toBe(52);
+    expect(dealt.reduce((a, b) => a + b, 0)).toBe(49);
   });
 });
 
@@ -520,6 +538,6 @@ describe("RNG", () => {
     const remaining =
       engine.state.discardPile.length +
       engine.state.players.reduce((s, p) => s + p.hand.length, 0);
-    expect(remaining).toBe(52);
+    expect(remaining).toBe(49);
   });
 });

@@ -43,4 +43,12 @@ export class Deck {
   drawTop(): Card | null {
     return this.cards.pop() ?? null;
   }
+
+  /**
+   * Removes every Queen except the Witch (♠Q) from the deck, leaving only the
+   * Queen of Spades in play. Called at deal time.
+   */
+  removeAllQueensButWitch(): void {
+    this.cards = this.cards.filter((c) => c.isWitch || c.rank !== "Q");
+  }
 }

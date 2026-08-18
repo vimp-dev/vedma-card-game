@@ -93,29 +93,36 @@ describe("rules diagnostic", () => {
   });
 
   it("shuffles the AI hand after an AI draw so the taken card is not predictable", () => {
-    const engine = new GameEngine();
-    engine.startGame(
-      [
-        { id: "human", type: "human", name: "You" },
-        { id: "ai", type: "ai", name: "Comp" },
-      ],
-      7,
-    );
-    const human = engine.getPlayer("human");
-    const ai = engine.getPlayer("ai");
     const drawn = createCard("diamonds", "9");
     const held = createCard("hearts", "5");
-    human!.hand = [drawn];
-    ai!.hand = [held];
-    engine.state.currentPlayerIndex = 1; // ai draws
-    engine.state.phase = "AI_TURN";
-    engine.drawCard({ type: "DRAW_CARD", sourcePlayerId: "human", cardId: drawn.id });
-    expect(engine.isGameOver()).toBe(false);
-    const ids = ai!.hand.map((c) => c.id);
-    // The hand still holds the same cards (a permutation, not a loss).
-    expect([...ids].sort()).toEqual(["diamonds-9", "hearts-5"]);
+    let permuted = false;
+    // The shuffle is genuinely random and depends on the RNG sequence (which
+    // shifted after non-spade queens were removed from the deal), so scan
+    // seeds until the hand is actually left permuted.
+    for (let seed = 0; seed < 64 && !permuted; seed++) {
+      const engine = new GameEngine();
+      engine.startGame(
+        [
+          { id: "human", type: "human", name: "You" },
+          { id: "ai", type: "ai", name: "Comp" },
+        ],
+        seed,
+      );
+      const human = engine.getPlayer("human");
+      const ai = engine.getPlayer("ai");
+      human!.hand = [drawn];
+      ai!.hand = [held];
+      engine.state.currentPlayerIndex = 1; // ai draws
+      engine.state.phase = "AI_TURN";
+      engine.drawCard({ type: "DRAW_CARD", sourcePlayerId: "human", cardId: drawn.id });
+      expect(engine.isGameOver()).toBe(false);
+      const ids = ai!.hand.map((c) => c.id);
+      // The hand still holds the same cards (a permutation, not a loss).
+      expect([...ids].sort()).toEqual(["diamonds-9", "hearts-5"]);
+      permuted = !ids.every((id, i) => id === ["hearts-5", "diamonds-9"][i]);
+    }
     // The drawn card is not simply appended to the end.
-    expect(ids).not.toEqual(["hearts-5", "diamonds-9"]);
+    expect(permuted).toBe(true);
   });
 
   it("RandomAI draws uniformly when the human holds two cards incl. the Witch", () => {

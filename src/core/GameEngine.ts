@@ -153,6 +153,7 @@ export class GameEngine {
     // -- Deal ---------------------------------------------------------
     this.state.phase = "DEALING";
     const deck = new Deck();
+    deck.removeAllQueensButWitch();
     deck.shuffle(this.rng);
     this.deal(deck);
     this.emit("CARDS_DEALT", {
