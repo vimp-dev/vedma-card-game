@@ -43,7 +43,7 @@ Playwright использует `webServer`, который сам подним�
 
 ```
 src/
-├── main.ts                  # точка входа, сборка UI, режим отладки
+├── main.ts                  # точка входа, сборка UI
 ├── style.css                # стили
 ├── core/                    # игровой движок (не зависит от платформы)
 │   ├── GameEngine.ts        # состояния, команды, события
@@ -57,7 +57,6 @@ src/
 │   └── RandomAI.ts          # случайный выбор карты
 ├── i18n/                    # локализация ru/en
 ├── storage/                 # сохранение статистики и настроек
-├── platform/                # адаптеры платформ
 ├── animation/               # анимации карт (Web Animations API)
 ├── audio/                   # синтезированные звуки (Web Audio)
 └── ui/                      # экраны и контроллер
@@ -81,8 +80,8 @@ src/
 `CARD_DRAW_STARTED`, `CARD_DRAWN`, `PAIR_CREATED`, `CARDS_DISCARDED`,
 `TURN_ENDED`, `GAME_OVER`.
 
-Случайность абстрагирована интерфейсом `RNG`: в продакшене `MathRNG`, в тестах и
-режиме отладки — `SeededRNG` (mulberry32) с воспроизводимыми партиями.
+Случайность абстрагирована интерфейсом `RNG`: в продакшене `MathRNG`, в тестах —
+`SeededRNG` (mulberry32) с воспроизводимыми партиями.
 
 ## ИИ
 
@@ -91,27 +90,6 @@ src/
 подключать любые стратегии без нарушения честности. Стандартный бот —
 `RandomAI`. Добавление нового ИИ: реализовать `AIPlayer` и передать его в
 `GameController`.
-
-## Платформы и монетизация
-
-Адаптеры в `src/platform/` реализуют общий интерфейс `PlatformAdapter`
-(показ рекламы, пауза, состояние «играю»):
-
-- **Yandex Games** — `YandexPlatformAdapter`: подключает SDK
-  `https://yandex.ru/games/sdk/v2`, определяется по хосту
-  (`yandex.net`/`yandex.ru` или наличию `window.YaGames`).
-- **CrazyGames** — `CrazyGamesPlatformAdapter`: подключает
-  `https://sdk.crazygames.com/crazygames-sdk-v3.js`.
-- **Локально** — `LocalPlatformAdapter`: заглушка без рекламы.
-
-Платформа определяется автоматически в `PlatformManager` (CrazyGames → Yandex →
-Local). Все ошибки SDK не должны ломать игру.
-
-## Отладка
-
-`?debug=true` включает панель отладки: принудительный ход игрока или ИИ, показ рук,
-рестарт. Через `?aidelay=<мс>` можно изменить задержку хода ИИ (по умолчанию 700 мс).
-В режиме отладки в `window.__witch` доступны `engine`, `controller`, `platform`, `audio`.
 
 ## Расширение
 
