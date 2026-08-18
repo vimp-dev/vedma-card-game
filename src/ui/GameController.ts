@@ -95,6 +95,11 @@ export class GameController {
     this.hidden = false;
     this.prevPhase = null;
 
+    // Clear any lingering hidden cards (e.g. after an aborted AI turn).
+    for (const view of this.gameScreen.computerHand.getAllViews()) {
+      view.element.classList.remove("card--hidden");
+    }
+
     this.engine.startGame([
       { id: HUMAN_ID, type: "human", name: t("you") },
       { id: AI_ID, type: "ai", name: t("computer") },
@@ -328,13 +333,15 @@ export class GameController {
     this.busy = false;
     this.setBusyUI(false);
 
-    // Reveal the AI hand in its shuffled order; the drawn card's landing
-    // slot was never shown, so it cannot be tracked.
-    this.gameScreen.render(this.engine.state);
-    const drawnView = this.gameScreen.getCardView(collected.drawn!.card.id);
-    drawnView?.element.classList.remove("card--hidden");
+    // The card has landed in the AI hand — shuffle it right away so the
+    // card positions are not preserved and the landing slot stays unknown.
+    this.engine.shufflePlayerHand(AI_ID);
 
     if (collected.gameOver) {
+      // Game is over — reveal the final hands for the game-over screen.
+      this.gameScreen.render(this.engine.state);
+      const drawnView = this.gameScreen.getCardView(collected.drawn!.card.id);
+      drawnView?.element.classList.remove("card--hidden");
       this.finishGame();
       return;
     }
@@ -366,6 +373,7 @@ export class GameController {
         duration: this.animations.time(460),
         easing: "ease-in-out",
         flip: true,
+        flipTo: "back",
         fadeOut: true,
       });
       return;
@@ -421,6 +429,11 @@ export class GameController {
       // Re-render so the AI hand appears in its freshly shuffled order
       // before input is enabled (the player must not act on stale slots).
       this.gameScreen.render(state);
+      // Un-hide the AI's drawn card only now: the hand is shuffled, so its
+      // landing slot can no longer be determined.
+      for (const view of this.gameScreen.computerHand.getAllViews()) {
+        view.element.classList.remove("card--hidden");
+      }
       this.gameScreen.setComputerInteractive(true);
       this.gameScreen.setHint(t("yourTurn"));
       this.busy = false;

@@ -296,6 +296,13 @@ export class GameEngine {
     return this.state.players.find((p) => p.id === id);
   }
 
+  /** Shuffles a specific player's hand in place (deterministic under a seed). */
+  shufflePlayerHand(playerId: string): void {
+    const player = this.getPlayer(playerId);
+    if (!player) return;
+    this.shuffleHand(player.hand);
+  }
+
   /** The player who currently holds the Witch, or null. */
   getWitchHolder(): PlayerState | null {
     for (const player of this.state.players) {

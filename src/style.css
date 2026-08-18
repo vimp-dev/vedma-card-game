@@ -690,6 +690,13 @@ button:focus-visible,
   padding: 0.5rem 1.25rem 0.2rem;
 }
 
+/* At max card size (clamp caps --card-w at 80px once 7.6vw >= 80px). */
+@media (min-width: 1053px) {
+  .hand__list {
+    padding: 0.5rem 2.25rem 0.2rem;
+  }
+}
+
 .hand__list::-webkit-scrollbar {
   display: none;
 }

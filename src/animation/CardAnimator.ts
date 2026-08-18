@@ -14,6 +14,13 @@ export interface FlyOptions {
   duration: number;
   easing?: Easing;
   flip?: boolean;
+  /**
+   * Direction of the mid-flight flip. "back" starts face-up and turns the
+   * card face-down half-way (used when the AI tucks a card into its hidden
+   * hand); "face" starts face-down and reveals it. Without this, `flip`
+   * keeps the legacy end-of-flight cosmetic rotation.
+   */
+  flipTo?: "back" | "face";
   scale?: number;
   /** Fade the ghost out towards the end of the flight. */
   fadeIn?: boolean;
@@ -38,29 +45,37 @@ export class CardAnimator {
     const ghost = el("div", "card card--ghost");
     ghost.dataset.uid = "ghost";
     ghost.dataset.suit = card.suit;
-    if (facedown) {
-      ghost.classList.add("card--back");
-      ghost.append(el("div", "card-back-pattern"), el("div", "card-back-glow"));
-    } else {
-      const corner = el("div", "card-corner card-corner--tl");
-      corner.append(
-        el("span", "card-rank", rankSymbol(card.rank)),
-        el("span", "card-suit", suitSymbol(card.suit)),
-      );
-      const center = el("div", "card-center");
-      center.append(el("span", "card-suit-big", suitSymbol(card.suit)));
-      if (card.isWitch) {
-        center.classList.add("card-center--witch");
-        center.append(el("div", "card-witch-ornament"));
-      }
-      ghost.append(corner, center);
-      ghost.setAttribute("aria-hidden", "true");
-    }
+    this.setGhostContent(ghost, card, facedown);
     ghost.style.position = "fixed";
     ghost.style.zIndex = "900";
     ghost.style.pointerEvents = "none";
     this.viewport.append(ghost);
     return ghost;
+  }
+
+  /** Rebuilds a ghost's face or back content (used for mid-flight flips). */
+  private setGhostContent(ghost: HTMLElement, card: Card, facedown: boolean): void {
+    ghost.textContent = "";
+    if (facedown) {
+      ghost.classList.add("card--back");
+      ghost.append(el("div", "card-back-pattern"), el("div", "card-back-glow"));
+      ghost.setAttribute("aria-label", "Card");
+      return;
+    }
+    ghost.classList.remove("card--back");
+    const corner = el("div", "card-corner card-corner--tl");
+    corner.append(
+      el("span", "card-rank", rankSymbol(card.rank)),
+      el("span", "card-suit", suitSymbol(card.suit)),
+    );
+    const center = el("div", "card-center");
+    center.append(el("span", "card-suit-big", suitSymbol(card.suit)));
+    if (card.isWitch) {
+      center.classList.add("card-center--witch");
+      center.append(el("div", "card-witch-ornament"));
+    }
+    ghost.append(corner, center);
+    ghost.setAttribute("aria-hidden", "true");
   }
 
   /**
@@ -73,7 +88,13 @@ export class CardAnimator {
     to: RectLike,
     options: FlyOptions,
   ): Promise<void> {
-    const ghost = this.makeGhost(card, !!options.flip && false);
+    const flipToFace = options.flipTo === "face";
+    const flipToBack = options.flipTo === "back";
+    const doFlip = flipToFace || flipToBack;
+
+    // For a mid-flight flip the ghost starts showing the opposite side: a
+    // reveal ("face") starts as a back, a tuck-away ("back") starts face-up.
+    const ghost = this.makeGhost(card, doFlip ? flipToFace : false);
     const duration = Math.max(MIN_DURATION, options.duration);
 
     const fromLeft = from.left + (from.width - to.width) / 2;
@@ -89,6 +110,49 @@ export class CardAnimator {
 
     if (options.fadeIn) {
       ghost.style.opacity = "0";
+    }
+
+    if (doFlip) {
+      // The card flies to the midpoint, flips edge-on to the other side, then
+      // continues to the destination. A short plateau at rotateY(90deg) gives
+      // a safe window to swap the content while the card is edge-on.
+      const midLeft = (fromLeft + to.left) / 2;
+      const midTop = (fromTop + to.top) / 2;
+      const startRot = flipToFace ? "180deg" : "0deg";
+      const endRot = flipToFace ? "0deg" : "180deg";
+      const scale = options.scale ?? 1;
+      const keyframes: Keyframe[] = [
+        {
+          left: `${fromLeft}px`,
+          top: `${fromTop}px`,
+          opacity: options.fadeIn ? "0" : "1",
+          transform: `scale(${scale}) rotateY(${startRot})`,
+        },
+        {
+          left: `${midLeft}px`,
+          top: `${midTop}px`,
+          opacity: "1",
+          transform: `scale(${scale}) rotateY(90deg)`,
+          offset: 0.4,
+        },
+        {
+          left: `${midLeft}px`,
+          top: `${midTop}px`,
+          opacity: "1",
+          transform: `scale(${scale}) rotateY(90deg)`,
+          offset: 0.55,
+        },
+        {
+          left: `${to.left}px`,
+          top: `${to.top}px`,
+          opacity: options.fadeOut ? "0" : "1",
+          transform: `scale(${scale}) rotateY(${endRot})`,
+        },
+      ];
+      window.setTimeout(() => {
+        this.setGhostContent(ghost, card, flipToFace ? false : true);
+      }, duration * 0.475);
+      return this.runAnimation(ghost, keyframes, duration, options.easing);
     }
 
     const midFlip = options.flip ? duration * 0.55 : 0;
@@ -133,9 +197,18 @@ export class CardAnimator {
       transform: `scale(${options.scale ?? 1})`,
     });
 
+    return this.runAnimation(ghost, keyframes, duration, options.easing);
+  }
+
+  private runAnimation(
+    ghost: HTMLElement,
+    keyframes: Keyframe[],
+    duration: number,
+    easing?: Easing,
+  ): Promise<void> {
     const anim = ghost.animate(keyframes, {
       duration,
-      easing: options.easing ?? "ease-in-out",
+      easing: easing ?? "ease-in-out",
       fill: "forwards",
     });
 
